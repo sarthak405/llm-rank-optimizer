@@ -3,3 +3,5 @@ test.py
 *_old*
 logs
 bash scripts
+wrapper_outputs
+__pycache__

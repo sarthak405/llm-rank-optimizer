@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import seaborn as sns
 import time
+import requests
 
 from tools import *
 
@@ -100,6 +101,31 @@ def prompt_generator(target_product_idx, product_list, user_msg, tokenizer, devi
 
     return adv_prompt_ids, adv_idxs
 
+def call_llm(prompt, max_new_tokens=800):
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer pak-nIQKSqJmlxQs3PM7a42ZYl7GB8ruWSZ_btWOWysY6fY',
+    }
+
+    params = {
+        'version': '2024-01-10',
+    }
+
+    json_data = {
+        'model_id': 'meta-llama/llama-2-13b-chat',
+        'input': prompt,
+        'parameters': {
+            'max_new_tokens': max_new_tokens,
+            'random_seed': 42
+        },
+    }
+
+    response = requests.post('https://bam-api.res.ibm.com/v2/text/generation', params=params, headers=headers, json=json_data)
+
+    # print(response.json())
+    output = response.json()['results'][0]['generated_text']
+    return output
+
 def rank_opt(target_product_idx, product_list, model, tokenizer, loss_function, prompt_gen,
              forbidden_tokens, save_path, num_iter=1000, top_k=256, num_samples=512, batch_size=200,
              test_iter=50, num_adv=20, verbose=True, random_order=True):
@@ -153,8 +179,11 @@ def rank_opt(target_product_idx, product_list, model, tokenizer, loss_function, 
 
     if verbose:
         print("\nADV PROMPT:\n" + decode_adv_prompt(inp_prompt_ids[0], opt_idxs, tokenizer))
-        model_output = model.generate(inp_prompt_ids, model.generation_config, max_new_tokens=800)
-        model_output_new = tokenizer.decode(model_output[0, len(inp_prompt_ids[0]):]).strip()
+        print(inp_prompt_ids)
+        print(tokenizer.decode(inp_prompt_ids[0]).strip())
+        model_output_new = call_llm(tokenizer.decode(inp_prompt_ids[0]).strip(), 800)
+        # model_output = model.generate(inp_prompt_ids, model.generation_config, max_new_tokens=800)
+        # model_output_new = tokenizer.decode(model_output[0, len(inp_prompt_ids[0]):]).strip()
         print("\nLLM RESPONSE:\n" + model_output_new)
 
         product_rank = rank_products(model_output_new, product_names)[target_product]
@@ -230,8 +259,9 @@ def rank_opt(target_product_idx, product_list, model, tokenizer, loss_function, 
             if (iter + 1) % test_iter == 0 or iter == num_iter - 1:
                 print("\n\nEvaluating attack...")
                 print("\nADV PROMPT:\n" + decode_adv_prompt(eval_prompt_ids[0], eval_opt_idxs, tokenizer))
-                model_output = model.generate(eval_prompt_ids, model.generation_config, max_new_tokens=800)
-                model_output_new = tokenizer.decode(model_output[0, len(eval_prompt_ids[0]):]).strip()
+                model_output_new = call_llm(tokenizer.decode(eval_prompt_ids[0]).strip(), 800)
+                # model_output = model.generate(eval_prompt_ids, model.generation_config, max_new_tokens=800)
+                # model_output_new = tokenizer.decode(model_output[0, len(eval_prompt_ids[0]):]).strip()
                 print("\nLLM RESPONSE:\n" + model_output_new)
 
                 product_rank = rank_products(model_output_new, product_names)[target_product]
@@ -312,8 +342,8 @@ if __name__ == "__main__":
     test_iter = args.test_iter
     random_order = args.random_order
 
-    model_path = "meta-llama/Llama-2-7b-chat-hf"
-    model_path = "model_llama2_7b_chat_hf"
+    # model_path = "meta-llama/Llama-2-7b-chat-hf"
+    model_path = "./model_llama2_7b_chat_hf"
     batch_size = 50
 
     # Set device
@@ -337,13 +367,14 @@ if __name__ == "__main__":
     print("* * * * * * * * * * * * * * * * * * * * *\n")
 
     # Load model and tokenizer
-    model = transformers.AutoModelForCausalLM.from_pretrained(
-        model_path,
-        torch_dtype=torch.float16,
-        trust_remote_code=True,
-        low_cpu_mem_usage=True,
-        use_cache=False,
-        )
+    # model = transformers.AutoModelForCausalLM.from_pretrained(
+    #     model_path,
+    #     torch_dtype=torch.float16,
+    #     trust_remote_code=True,
+    #     low_cpu_mem_usage=True,
+    #     use_cache=False,
+    #     )
+    model= ''
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
 
